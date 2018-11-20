@@ -3,17 +3,146 @@ var app = express();
 var bodyParser = require('body-parser');
 var mongodb = require('mongodb');
 var MongoClient = mongodb.MongoClient;
+var express_graphql = require('express-graphql'); //GraphQL
+var {buildSchema} = require('graphql'); //GraphQL
 
 // Connection URL
 const url = 'mongodb://192.168.1.20:27017';
 
-
+app.use(bodyParser.json())
 app.use(express.static(__dirname + '/View'));
 app.use(bodyParser.urlencoded({ extend: true }));
 app.engine('html', require('ejs').renderFile);
 app.set('view engine', 'html');
 
+//GraphQL
+const schema = buildSchema(`
+  type Query {
+    coleccion: [Coleccion]
+    partes : [Partes]
+    parte(_id:Int) : [Partes]
+    catalogos : [Catalogos]
+    catalogo(_id:Int) : [Catalogos]
+    proveedores : [Proveedores]
+    proveedor(_id:Int) : [Proveedores]
+  },
+  type Coleccion{
+    collectionName:String
+  },
+  type Partes{
+    _id: Int
+    nombrepa: String
+    color: String
+  },
+  type Catalogos{
+    _id : Int
+    idp : Int
+    idpa : Int
+    precio : Float
+  },
+  type Proveedores{
+    _id : Int
+    nombrep : String
+    direccionp : String
+  }
+`)
+auxGraph = {
+    parte:[],
+    partes:[],
+    catalogo:[],
+    catalogos:[],
+    proveedor:[],
+    proveedores:[],
+    coleccion:[]
+}
+const rootValue = {
+    parte: (arg) =>  {
+        return new Promise( (res,rej) => {
+            auxGraph.parte = []
+            MongoClient.connect(url, function(err,client){
+                client.db('Integrador').collection('Partes').find({}).forEach((datos) => {
+                    if(datos._id == arg._id){
+                       auxGraph.parte.push(datos) 
+                    }
+                }).then(()=>{res(auxGraph.parte)})
+            })  
+        })     
+    },
+    partes: () =>  {
+        return new Promise( (res,rej) => {
+            auxGraph.partes = []
+            MongoClient.connect(url, function(err,client){
+                client.db('Integrador').collection('Partes').find({}).forEach((datos) => {
+                   auxGraph.partes.push(datos)
+                }).then(()=>{res(auxGraph.partes)})
+            })  
+        })     
+    },
+    catalogo: (arg) =>  {
+        return new Promise( (res,rej) => {
+            auxGraph.catalogo = []
+            MongoClient.connect(url, function(err,client){
+                client.db('Integrador').collection('Catalogo').find({}).forEach((datos) => {
+                    if(datos._id == arg._id){
+                       auxGraph.catalogo.push(datos) 
+                    }
+                }).then(()=>{res(auxGraph.catalogo)})
+            })  
+        })     
+    },
+    catalogos: () =>  {
+        return new Promise( (res,rej) => {
+            auxGraph.catalogos = []
+            MongoClient.connect(url, function(err,client){
+                client.db('Integrador').collection('Catalogo').find({}).forEach((datos) => {
+                   auxGraph.catalogos.push(datos)
+                }).then(()=>{res(auxGraph.catalogos)})
+            })  
+        })     
+    },
+    proveedor: (arg) =>  {
+        return new Promise( (res,rej) => {
+            auxGraph.proveedor = []
+            MongoClient.connect(url, function(err,client){
+                client.db('Integrador').collection('Proveedores').find({}).forEach((datos) => {
+                    if(datos._id == arg._id){
+                       auxGraph.proveedor.push(datos) 
+                    }
+                }).then(()=>{res(auxGraph.proveedor)})
+            })  
+        })     
+    },
+    proveedores: () =>  {
+        return new Promise( (res,rej) => {
+            auxGraph.proveedores = []
+            MongoClient.connect(url, function(err,client){
+                client.db('Integrador').collection('Proveedores').find({}).forEach((datos) => {
+                   auxGraph.proveedores.push(datos)
+                }).then(()=>{res(auxGraph.proveedores)})
+            })  
+        })     
+    },
+    coleccion: () =>  {
+        return new Promise( (res,rej) => {
+            auxGraph.coleccion = []
+            MongoClient.connect(url, function(err,client){
+                client.db('Integrador').collections().then((datos)=>{
+                    auxGraph.coleccion = datos  
+                }).then(()=>{res(auxGraph.coleccion)})
+            })  
+        })     
+    },
+}
 
+
+
+
+
+app.use('/graphql', express_graphql({
+    schema,
+    rootValue,
+    graphiql: true
+}))
 
 //Render consulta1.html
 app.get('/consulta1', function (req, res) {
@@ -23,51 +152,8 @@ app.get('/consulta1', function (req, res) {
 //POST consulta1
 app.post('/consulta1', function (req, res) {
     let colorbody = req.body.color;
-    var aux = {
-        parteID: [],
-        proveedoresCompleto: [],
-        catalogoCompleto: []
-    }
-    function cargar() {
-        MongoClient.connect(url, function (err, client) {
-           
-                // Conectado
-                console.log('Coneccion establecida con', url);
-                const db = client.db('Integrador'); //DB en USO
-                //Coleccion Partes
-                var partes = db.collection('Partes');
-                //Coleccion Proveedores                           
-                var proveedores = db.collection('Proveedores');
-                //Coleccion Catalogo                                                                                
-                var catalogo = db.collection('Catalogo');
 
-                partes.find({ color: colorbody }).toArray().then(e => {
-                    aux.parteID = e;
-                })
 
-                proveedores.find({}).toArray().then(e => {
-                    aux.proveedoresCompleto = e;
-                })
-
-                catalogo.find({}).toArray().then(e => {
-                    aux.catalogoCompleto = e;
-                })
-            
-        })
-    }
-    cargar()
-    console.log('asd')
-})
-
-//Render consulta2.html
-app.get('/consulta2', function (req, res) {
-    res.sendFile(__dirname + '/View/consulta2.html');
-});
-
-//POST consulta2
-app.post('/consulta2', function (req, res) {
-    let bodycolor1 = req.body.color1;
-    let bodycolor2 = req.body.color2;
     MongoClient.connect(url, function (err, client) {
         if (err) {
             console.log('No fue posible conectarde al servido', err);
@@ -82,62 +168,75 @@ app.post('/consulta2', function (req, res) {
             //Coleccion Catalogo                                                                                
             var catalogo = db.collection('Catalogo');
 
-            var aux = {
-                c1: [],
-                c2: []
+            aux = {
+                partesRojas: [],
+                catalogoPaRojas: [],
+                proveedores: []
             }
 
-            aux.c1 = findIdpaConColor(db, bodycolor1, function () {
-                client.close();
-            });
-            aux.c2 = findIdpaConColor(db, bodycolor2, function () {
-                client.close();
-            });
-
-            aux1 = {
-                i1: [],
-                i2: []
-            }
-            var z = 0
-            for (z = 1; z < 3; z++) {
-                aux1.i1 = findIdpConIdpa(db, aux.c1[z], function () {
-                    client.close();
+            partes.find({ color: colorbody }).forEach(function (myDoc) {
+                //console.log( "user: " + myDoc._id ); 
+                aux.partesRojas.push(myDoc._id)
+            }).then(function () {
+                catalogo.find({ idpa: { $in: aux.partesRojas } }).forEach(function (e) {
+                    //console.log(e)
+                    aux.catalogoPaRojas.push(e.idp)
+                }).then(function () {
+                    proveedores.find({ _id: { $in: aux.catalogoPaRojas } }).forEach(function (proveedor) {
+                        aux.proveedores.push(proveedor.nombrep)
+                    }).then(function () {
+                        res.json('Nombre de proveedores que proveen Partes ' + colorbody + ' : ' + aux.proveedores)
+                    })
                 })
+            })
+        }
+    })
+})
+
+//Render consulta2.html
+app.get('/consulta2', function (req, res) {
+    res.sendFile(__dirname + '/View/consulta2.html');
+});
+
+//POST consulta2
+app.post('/consulta2', function (req, res) {
+    let colorbody1 = req.body.color1;
+    let colorbody2 = req.body.color2;
+    MongoClient.connect(url, function (err, client) {
+        if (err) {
+            console.log('No fue posible conectarde al servido', err);
+        } else {
+            // Conectado
+            console.log('Coneccion establecida con', url);
+            const db = client.db('Integrador'); //DB en USO
+            //Coleccion Partes
+            var partes = db.collection('Partes');
+            //Coleccion Proveedores                           
+            var proveedores = db.collection('Proveedores');
+            //Coleccion Catalogo                                                                                
+            var catalogo = db.collection('Catalogo');
+
+            aux = {
+                partesRojas: [],
+                catalogoPaRojas: [],
+                proveedores: []
             }
 
-            function findIdpaConColor(db, valor, callback) {
-                // Get the documents collection
-                const collection = db.collection('Partes');
-                // Find some documents
-                collection
-                    .find({ color: valor })
-                    .project({ _id: 1 })
-                    .toArray(function (err, docs) {
-                        console.log("Found the following records");
-                        console.log(docs)
-                        callback(docs);
-                        aux.a = docs;
-                    });
-                return (aux.a)
-            }
-
-            function findIdpConIdpa(db, valor, callback) {
-                // Get the documents collection
-                const collection = db.collection('Catalogo');
-                // Find some documents
-                collection
-                    .find({ idp: valor })
-                    .project({ _id: 1 })
-                    .toArray(function (err, docs) {
-                        console.log("Found the following records");
-                        console.log(docs)
-                        callback(docs);
-                        aux.a = docs;
-                    });
-                return (aux.a)
-            }
-
-
+            partes.find({ color: { $in: [colorbody1, colorbody2] } }).forEach(function (myDoc) {
+                //console.log( "user: " + myDoc._id ); 
+                aux.partesRojas.push(myDoc._id)
+            }).then(function () {
+                catalogo.find({ idpa: { $in: aux.partesRojas } }).forEach(function (e) {
+                    //console.log(e)
+                    aux.catalogoPaRojas.push(e.idp)
+                }).then(function () {
+                    proveedores.find({ _id: { $in: aux.catalogoPaRojas } }).forEach(function (proveedor) {
+                        aux.proveedores.push(proveedor._id)
+                    }).then(function () {
+                        res.json('Id de proveedores que proveen Partes ' + colorbody1 + ' o Partes ' + colorbody2 + ' : ' + aux.proveedores)
+                    })
+                })
+            })
         }
     })
 })
@@ -148,40 +247,282 @@ app.get('/consulta3', function (req, res) {
 
 });
 
+//POST consulta3
+app.post('/consulta3', function (req, res) {
+    let colorbody1 = req.body.color;
+
+    MongoClient.connect(url, function (err, client) {
+        if (err) {
+            console.log('No fue posible conectarde al servido', err);
+        } else {
+            // Conectado
+            console.log('Coneccion establecida con', url);
+            const db = client.db('Integrador'); //DB en USO
+            //Coleccion Partes
+            var partes = db.collection('Partes');
+            //Coleccion Proveedores                           
+            var proveedores = db.collection('Proveedores');
+            //Coleccion Catalogo                                                                                
+            var catalogo = db.collection('Catalogo');
+
+            aux = {
+                partesRojas: [],
+                catalogoPaRojas: [],
+                proveedores: []
+            }
+
+            partes.find({ color: colorbody1 }).forEach(function (myDoc) {
+                aux.partesRojas.push(myDoc._id)
+
+            }).then(function () {
+
+                catalogo.find({ idpa: { $in: aux.partesRojas } }).forEach(function (e) {
+                    aux.catalogoPaRojas.push(e.idp)
+
+                }).then(function () {
+                    proveedores.find({ $or: [{ _id: { $in: aux.catalogoPaRojas } }, { direccionp: '99999 Short Pier, Terra Del Fuego, TX 41299' }] }).forEach(function (proveedor) {
+                        aux.proveedores.push(proveedor._id)
+
+                    }).then(function () {
+                        res.json('Id de Proveedores que provean alguna parte ' + colorbody1 + ' o vivan en 99999 Short Pier, Terra Del Fuego, TX 41299: ' + aux.proveedores)
+                    })
+                })
+            })
+        }
+    })
+})
 //Render consulta4.html
 app.get('/consulta4', function (req, res) {
     res.sendFile(__dirname + '/View/consulta4.html');
 });
+
+//POST consulta4
+app.post('/consulta4', function (req, res) {
+    let colorbody1 = req.body.color1;
+    let colorbody2 = req.body.color2;
+
+    MongoClient.connect(url, function (err, client) {
+        if (err) {
+            console.log('No fue posible conectarde al servido', err);
+        } else {
+            // Conectado
+            console.log('Coneccion establecida con', url);
+            const db = client.db('Integrador'); //DB en USO
+            //Coleccion Partes
+            var partes = db.collection('Partes');
+            //Coleccion Proveedores                           
+            var proveedores = db.collection('Proveedores');
+            //Coleccion Catalogo                                                                                
+            var catalogo = db.collection('Catalogo');
+
+            aux = {
+                partesRojas: [],
+                partesVerdes: [],
+                catalogoPaRojas: [],
+                catalogoPaVerde: [],
+                proveedores: [],
+                proveedoresV: []
+            }
+
+            partes.find({ color: colorbody1 }).forEach(function (myDoc) {
+                //console.log( "user: " + myDoc._id ); 
+                aux.partesRojas.push(myDoc._id)
+            }).then(function () {
+                catalogo.find({ idpa: { $in: aux.partesRojas } }).forEach(function (e) {
+                    //console.log(e)
+                    aux.catalogoPaRojas.push(e.idp)
+                }).then(function () {
+                    partes.find({ color: colorbody2 }).forEach(function (myDocu) {
+                        aux.partesVerdes.push(myDocu._id)
+                    }).then(function () {
+                        catalogo.find({ idpa: { $in: aux.partesVerdes } }).forEach(function (e1) {
+                            aux.catalogoPaVerde.push(e1.idp)
+                        }).then(function () {
+                            proveedores.find({ $and: [{ _id: { $in: aux.catalogoPaRojas } }, { _id: { $in: aux.catalogoPaVerde } }] }).forEach(function (proveedor) {
+                                aux.proveedores.push(proveedor._id)
+                            }).then(function () {
+                                res.json('id de proveedores que venden partes ' + colorbody1 + ' y partes ' + colorbody2 + ' : ' + aux.proveedores)
+                            })
+                        })
+                    })
+                })
+            })
+
+        }
+    })
+})
 
 //Render consulta5.html
 app.get('/consulta5', function (req, res) {
     res.sendFile(__dirname + '/View/consulta5.html');
 });
 
+//POST consulta5
+app.post('/consulta5', function (req, res) {
+
+    MongoClient.connect(url, function (err, client) {
+
+        if (err) {
+            console.log('No fue posible conectarde al servido', err);
+        } else {
+            // Conectado
+            console.log('Coneccion establecida con', url);
+            const db = client.db('Integrador'); //DB en USO
+            //Coleccion Partes
+            var partes = db.collection('Partes');
+            //Coleccion Proveedores                           
+            var proveedores = db.collection('Proveedores');
+            //Coleccion Catalogo                                                                                
+            var catalogo = db.collection('Catalogo');
+
+            //encuentre los sid de los proveedores que proveen cada parte
+            catalogo.aggregate([
+                {
+                    $group: {
+                        _id: "$idp",
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $match: { count: { $gte: 9 } }      //Existen 9 partes
+                }
+            ])
+                .forEach(function (doc) {
+                    aux.prov = doc
+                    res.json('aksdkadkad' + aux.prov)
+                })
+            res.json('Fin')
+        }
+    })
+})
+
 //Render consulta6.html
 app.get('/consulta6', function (req, res) {
     res.sendFile(__dirname + '/View/consulta6.html');
 });
+
+//POST consulta6
+app.post('/consulta6', function (req, res) {
+
+})
+
 
 //Render consulta7.html
 app.get('/consulta7', function (req, res) {
     res.sendFile(__dirname + '/View/consulta7.html');
 });
 
+
+//POST consulta7
+app.post('/consulta7', function (req, res) {
+   
+})
 //Render consulta8.html
 app.get('/consulta8', function (req, res) {
     res.sendFile(__dirname + '/View/consulta8.html');
 });
+
+//POST consulta8
+app.post('/consulta8', function (req, res) {
+
+})
 
 //Render consulta9.html
 app.get('/consulta9', function (req, res) {
     res.sendFile(__dirname + '/View/consulta9.html');
 });
 
+//POST consulta9
+app.post('/consulta9', function (req, res) {
+
+    MongoClient.connect(url, function (err, client) {
+
+        if (err) {
+            console.log('No fue posible conectarde al servido', err);
+        } else {
+            // Conectado
+            console.log('Coneccion establecida con', url);
+            const db = client.db('Integrador'); //DB en USO
+            //Coleccion Partes
+            var partes = db.collection('Partes');
+            //Coleccion Proveedores                           
+            var proveedores = db.collection('Proveedores');
+            //Coleccion Catalogo                                                                                
+            var catalogo = db.collection('Catalogo');
+
+            var aux = {
+                prov: []
+            }
+
+            catalogo.aggregate([
+                {
+                    $project: {
+                        precio: { $gt: "$precio" },
+                    }
+
+                }]).forEach(function (doc) {
+                    aux.prov.push(doc)
+
+                }).then(function () {
+                    res.json(aux.prov)
+            })
+
+        }
+
+    })
+
+});
+
 //Render consulta10.html
 app.get('/consulta10', function (req, res) {
     res.sendFile(__dirname + '/View/consulta10.html');
 });
+
+//POST consulta10
+app.post('/consulta10', function (req, res) {
+
+    MongoClient.connect(url, function (err, client) {
+
+        if (err) {
+            console.log('No fue posible conectarde al servido', err);
+        } else {
+            // Conectado
+            console.log('Coneccion establecida con', url);
+            const db = client.db('Integrador'); //DB en USO
+            //Coleccion Partes
+            var partes = db.collection('Partes');
+            //Coleccion Proveedores                           
+            var proveedores = db.collection('Proveedores');
+            //Coleccion Catalogo                                                                                
+            var catalogo = db.collection('Catalogo');
+
+            //encuentre los pids de partes que sea provistas por al menos 2 proveedores
+            var aux = {
+                prov: []
+            }
+            catalogo.aggregate([
+                {
+                    $group: {
+                        _id: "$idpa",
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $match: { count: { $gt: 1 } }      //Existen 9 partes
+                }
+            ])
+                .forEach(function (doc) {
+                    aux.prov.push(doc)
+
+
+                }).then(function () {
+                    res.json(aux.prov)
+                })
+
+
+        }
+    })
+})
 
 app.post('/', function (req, res) {
     res.sendFile(__dirname + '/View/index.html');
@@ -205,6 +546,7 @@ MongoClient.connect(url, function (err, client) {
         //partes.insertMany(partesJson);
         //proveedores.insertMany(proveedoresJson);
         //catalogo.insertMany(catalogoJson);
+
 
 
 
@@ -273,7 +615,26 @@ catalogoJson = [{
 },
 {
     _id: 11, idp: 4, idpa: 7, precio: 1247548.23
-}];
+},
+{
+    _id: 12, idp: 1, idpa: 9, precio: 10.50
+},
+{
+    _id: 13, idp: 1, idpa: 5, precio: 10.50
+},
+{
+    _id: 14, idp: 1, idpa: 7, precio: 12.50
+},
+{
+    _id: 15, idp: 1, idpa: 2, precio: 12.50
+},
+{
+    _id: 16, idp: 1, idpa: 6, precio: 12.50
+},
+{
+    _id: 17, idp: 1, idpa: 1, precio: 12.50
+},
+];
 
 //Suppliers DB Json
 proveedoresJson = [{
